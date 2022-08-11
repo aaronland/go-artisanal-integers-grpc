@@ -18,6 +18,7 @@ type GRPCClient struct {
 	address string
 	mu      *sync.RWMutex
 	ttl     time.Duration
+	expires time.Time
 }
 
 func init() {
@@ -85,6 +86,13 @@ func (c *GRPCClient) NextInt(ctx context.Context) (int64, error) {
 		return -1, err
 	}
 
+	go func(){
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		now := time.Now()
+		c.expires = now.Add(c.ttl)
+	}()
+	
 	return i.Integer, nil
 }
 
@@ -109,9 +117,9 @@ func (c *GRPCClient) ensureClient(ctx context.Context) error {
 	c.client = client
 
 	now := time.Now()
-	then := now.Add(c.ttl)
+	c.expires = now.Add(c.ttl)
 
-	go func(ttl time.Time) {
+	go func() {
 
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
@@ -120,7 +128,7 @@ func (c *GRPCClient) ensureClient(ctx context.Context) error {
 			select {
 			case t := <-ticker.C:
 
-				if t.After(ttl) {
+				if t.After(c.expires) {
 
 					c.mu.Lock()
 					defer c.mu.Unlock()
@@ -137,7 +145,7 @@ func (c *GRPCClient) ensureClient(ctx context.Context) error {
 			}
 		}
 
-	}(then)
+	}()
 
 	return nil
 }
