@@ -2,18 +2,39 @@ package grpc
 
 import (
 	"context"
-	"google.golang.org/grpc"
 	"fmt"
-	"net/url"
 	"github.com/aaronland/go-artisanal-integers/server"
-	"github.com/aaronland/go-artisanal-integers/service"	
+	"github.com/aaronland/go-artisanal-integers/service"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"net"
+	"net/url"
 )
 
 type GRPCArtisanalIntegerServer struct {
 	server.ArtisanalIntegerServer
-	grpc_server
-	address string
+	grpc_server *grpc.Server
+	address     string
+}
+
+type ServiceWrapper struct {
+	ArtisanalIntegerServiceServer
 	service service.Service
+}
+
+func (wr *ServiceWrapper) NextInt(ctx context.Context, e *emptypb.Empty) (*ArtisanalInteger, error) {
+
+	v, err := wr.service.NextInt(ctx)
+
+	if err != nil {
+		return nil, fmt.Errorf("Failed to generate next int, %w", err)
+	}
+
+	i := &ArtisanalInteger{
+		Integer: v,
+	}
+
+	return i, nil
 }
 
 func init() {
@@ -42,14 +63,18 @@ func NewGRPCArtisanalIntegerServer(ctx context.Context, uri string) (server.Arti
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create new service, %w", err)
 	}
-	
+
+	wr := &ServiceWrapper{
+		service: svc,
+	}
+
 	grpc_server := grpc.NewServer()
 
-	// register something here...
-	
+	RegisterArtisanalIntegerServiceServer(grpc_server, wr)
+
 	s := &GRPCArtisanalIntegerServer{
-		address: u.Host,
-		service: service,
+		address:     u.Host,
+		grpc_server: grpc_server,
 	}
 
 	return s, nil
@@ -67,6 +92,5 @@ func (s *GRPCArtisanalIntegerServer) ListenAndServer(ctx context.Context, args .
 		return fmt.Errorf("failed to listen: %v", err)
 	}
 
-	return grpc_server.Serve(lis)
+	return s.grpc_server.Serve(lis)
 }
-

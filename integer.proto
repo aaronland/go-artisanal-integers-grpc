@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+option go_package = "./grpc";
+
+service ArtisanalIntegerService {
+	rpc NextInt (google.protobuf.Empty) returns (ArtisanalInteger) {}
+}
+
+message ArtisanalInteger {
+	int64 integer = 1;
+}
