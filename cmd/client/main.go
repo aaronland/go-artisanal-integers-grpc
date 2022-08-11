@@ -4,40 +4,30 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	aa_grpc "github.com/aaronland/go-artisanal-integers-grpc"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
+	_ "github.com/aaronland/go-artisanal-integers-grpc"
+	"github.com/aaronland/go-artisanal-integers/client"
 	"log"
 )
 
 func main() {
 
-	address := flag.String("address", "localhost:8080", "")
+	client_uri := flag.String("client-uri", "grpc://localhost:8080", "")
 
 	flag.Parse()
 
 	ctx := context.Background()
 
-	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithInsecure())
-
-	conn, err := grpc.Dial(*address, opts...)
+	cl, err := client.NewClient(ctx, *client_uri)
 
 	if err != nil {
-		log.Fatalf("fail to dial '%s', %v", *address, err)
+		log.Fatalf("Failed to create new client, %v", err)
 	}
 
-	defer conn.Close()
-
-	client := aa_grpc.NewArtisanalIntegerServiceClient(conn)
-
-	e := &emptypb.Empty{}
-
-	i, err := client.NextInt(ctx, e)
+	i, err := cl.NextInt(ctx)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(i.Integer)
+	fmt.Println(i)
 }
