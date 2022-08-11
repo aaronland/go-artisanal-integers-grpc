@@ -39,7 +39,7 @@ func (wr *ServiceWrapper) NextInt(ctx context.Context, e *emptypb.Empty) (*Artis
 
 func init() {
 	ctx := context.Background()
-	server.RegisterArtisanalIntegerServer(ctx, "gprc", NewGRPCArtisanalIntegerServer)
+	server.RegisterArtisanalIntegerServer(ctx, "grpc", NewGRPCArtisanalIntegerServer)
 }
 
 func NewGRPCArtisanalIntegerServer(ctx context.Context, uri string) (server.ArtisanalIntegerServer, error) {
@@ -84,7 +84,7 @@ func (s *GRPCArtisanalIntegerServer) Address() string {
 	return s.address
 }
 
-func (s *GRPCArtisanalIntegerServer) ListenAndServer(ctx context.Context, args ...interface{}) error {
+func (s *GRPCArtisanalIntegerServer) ListenAndServe(ctx context.Context, args ...interface{}) error {
 
 	lis, err := net.Listen("tcp", s.address)
 
