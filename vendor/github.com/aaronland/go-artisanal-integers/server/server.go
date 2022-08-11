@@ -1,35 +1,92 @@
 package server
 
 import (
-	"errors"
-	"github.com/aaronland/go-artisanal-integers"
-	_ "log"
+	"context"
+	"fmt"
+	"github.com/aaronland/go-roster"
 	"net/url"
+	"sort"
 	"strings"
 )
 
-func NewArtisanalServer(proto string, u *url.URL, args ...interface{}) (artisanalinteger.Server, error) {
+type Server interface {
+	Address() string
+	ListenAndServe(context.Context, ...interface{}) error
+}
 
-	var svr artisanalinteger.Server
-	var err error
+type ServerInitializeFunc func(ctx context.Context, uri string) (Server, error)
 
-	switch strings.ToUpper(proto) {
+var servers roster.Roster
 
-	case "HTTP":
+func ensureServerRoster() error {
 
-		svr, err = NewHTTPServer(u, args...)
+	if servers == nil {
 
-	case "TCP":
+		r, err := roster.NewDefaultRoster()
 
-		svr, err = NewTCPServer(u, args...)
+		if err != nil {
+			return err
+		}
 
-	default:
-		return nil, errors.New("Invalid server protocol")
+		servers = r
 	}
+
+	return nil
+}
+
+func RegisterServer(ctx context.Context, scheme string, f ServerInitializeFunc) error {
+
+	err := ensureServerRoster()
+
+	if err != nil {
+		return err
+	}
+
+	return servers.Register(ctx, scheme, f)
+}
+
+func Schemes() []string {
+
+	ctx := context.Background()
+	schemes := []string{}
+
+	err := ensureServerRoster()
+
+	if err != nil {
+		return schemes
+	}
+
+	for _, dr := range servers.Drivers(ctx) {
+		scheme := fmt.Sprintf("%s://", strings.ToLower(dr))
+		schemes = append(schemes, scheme)
+	}
+
+	sort.Strings(schemes)
+	return schemes
+}
+
+func NewServer(ctx context.Context, uri string) (Server, error) {
+
+	u, err := url.Parse(uri)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return svr, nil
+	scheme := u.Scheme
+
+	i, err := servers.Driver(ctx, scheme)
+
+	if err != nil {
+		return nil, err
+	}
+
+	f := i.(ServerInitializeFunc)
+	s, err := f(ctx, uri)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
